@@ -1,0 +1,83 @@
+Interview Methods
+
+###AWS: 
+How you achieve Autoscaling in AWS
+How to copy file from windows to AWS machine
+What are role and Policies in AWS IAM
+50 users have to give same permission how?
+Programatic access how will you give
+Ec2 Machine I have installed many apps. I want to create same config machine. How?
+AMI region specific. How to use same AMI in other region?
+Why we need security groups? What is default outbound rules?
+What is VPC? Brief about VPC?
+Which load balancers your worked and difference between those
+How to auto scale is done?
+Auto Sacling rule load goes more than 60% create a new. Inst1 62%, Inst2 30%, Inst3 30#. Will it create new instance?
+Ans: Auto scaling takes Avg of three machines
+ 
+
+
+###Shell:
+What is shebang in shell? Why we use it?
+How to replace a specific word in shell
+How to get present working folder in shell
+How to find the position of A B C D where A,B,C,B position changes. Give the value of the position 
+Script to find directory or a file. If dir remove the dir else show as file
+How to check whether a particular port is used or not
+Script for Palindrome or not
+Command to get no of line in a file
+File with Ip Address. List unique IP addresses with no of time its present in file
+ANS:  cat <file name> | unique -n
+What is Exit status in UNIX
+How to display the save file name in shell script Ex: Magic.sh ---> This is from Magic.sh ; Change to Magic-test.sh  ----> This is from Magic-test.sh
+Ans: Echo $0
+Command to find empty files in a given directory
+SSH connectivity in two machine. What files present in .ssh
+How to schedule a shell script in unix machine
+How to identify IP addresses in log file and count of IP addresses in log file
+Command to get load average?
+
+Logical Volume
+Hypervisor
+CNI in Kubrtnetes
+Diff b/w Centos, Debaian, Redhat
+networking switch and router
+cloud plugin used in kubernetes
+external kubernetes services
+SSL communication
+Layers of OSI model of ubuntu
+
+1. how to know user is root user or sudo user
+2. how to create users in linux and how to give sudo permissions to user
+3. how to display last 10 commands which we have used in linux
+4. difference b/w docker file and docker compose
+5. explain about dcoker file
+6. explain about docker volumes
+7. how to restart stopped container
+8. difference b/w VM and docker 
+9. why we use ansible and explain about any ansible playbook
+10. what is jenkins profiles and how to create
+11. how much you know about maven and about maven profiles
+12. what is the pipeline stages and explain about build stage
+13. one user wants to process only build step how do you give permissions to user to do only build step for particular job
+14. explain about IAM and some databases in AWS
+15. explain about kubernetes and what is the use and all
+16. name space in docker
+17. 3 containers are running, one container is consuming all the cpu memory (99%) will it be caused any issue to remaining containers? If yes what is the solution?
+18. We are running on one container and that got failed. What is the possible ways to rectify that and what are the steps to take further 
+19. How to check whether the particular process is running properly or not? in linux
+20. I want to stop particular process using linus commands
+21. What are all branches u have used in Jenkins
+22. If build fails what are all the steps we should take
+23. SED command completely
+24. Can we delete content in a file by using SED command
+25. How the automatic tests happens in Jenkins
+26. Docker build option description
+27. We have file called abc.txt in our system, how to check, in which location that file exists using linux command
+28. Tell the branch names you have worked in GIT
+29. Suppose we have a java.exe file and we have to run as a container, write a docker file and mention all the variables which we need to execute java.exe
+30. Day to day activities other than CI/CD
+31. Why we use docker containerization
+
+
+

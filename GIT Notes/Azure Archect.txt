@@ -1,0 +1,1125 @@
+29/05/2020
+###############################Virtual Machine creation Requirements:###########################################
+1. Resource group
+2. Virtual Network
+3. Network Security Groups
+4. Network Interface 
+5. Public IP (one for each instance)
+6. Create disk (one for each instance)
+
+#####################HOW TO CONNECT REMOTE DESKTOP FROM POWERSHELL #########################################
+
+https://www.assistanz.com/access-azure-windows-vm-through-powershell/  ----> Complete Document
+
+300 RDP 3389 TCP Any Any Allow
+310 WinRM_5986 5986 TCP Any Any Allow
+320 WinRM_http 5985 Any Any Any
+
+On WINDOWS Run Terminal using win+R:
+-----------------------------------------------------
+mstsc -v <ipaddresss>
+
+Modify Disk volume on remote desktop.
+Disable NetWorkService on remote desktop in Windows Security of Domain, Private, Public (turn off)
+
+On Remote desktop Command Prompt
+------------------------------------------------------
+1. >> powershell.exe
+2. >> winrm quickconfig   
+3. >> get-service winrm
+4. >> start-service winrm (Use this only winRm service is not running)
+
+On Local Windows POWERSHELL:
+--------------------------------------------------
+1. >> Get-Service WinRM
+2. >> WinRM qc 
+3. >> Enter-PSSession '<IP Address>' -Credential:'<username>'...                                                                                                                               
+4. >> Enable-PSRemoting   
+***NOTE: If you get an Error like change network. Then Change your wifi network to private.                                                                                                                                                                      
+5. >> Set-Item WSMan:\localhost\Client\TrustedHosts -value <IP Address>
+6. >> Enter-PSSession -ComputerName <IP Address> -Credential "<username>"                                                                                                                          
+                                                  
+For Testing the connection execute these commands from Local Win Powershell only after it is connected.
+1. New-Item F:\test.txt
+2. Set-Content F:\test.txt 'Welcome to Remote Desktop'
+3. Get-Content F:\test.txt
+Now go and check in Remote desktop you will see a file with test.txt
+
+##################################### END OF VIRTUAL MACHINE #############################################################
+
+30/05/2020
+########################################## VPN and VM Creation ############################################################
+VPN creation Requirements:
+1. Resource group
+2. Virtual Network
+ a. Subnet.
+ b. Gatewaysubnet  (Goto attributes and select Subnet and click on Gatewaysubnet)
+3. Public IP
+4. Virtual Network Gateway
+
+Insert certificate in powershell:
+ROOT CERT:
+$cert=New-SelfSignedCertificate -Type Custom -KeySpec Signature -Subject "ROOTCERT" -KeyExportPolicy Exportable -HashAlgorithm sha256 -KeyLength 2048 -CertStoreLocation 'Cert:\CurrentUser\My' -KeyUsageProperty Sign -KeyUsage CertSign
+
+CLIENT CERT:
+New-SelfSignedCertificate -Type Custom -DnsName CLIENT -KeySpec Signature -Subject "CN=ClientCERT" -KeyExportPolicy Exportable -HashAlgorithm sha256 -KeyLength 2048 -CertStoreLocation 'Cert:\CurrentUser\My' -Signer $cert -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.2")
+
+http://www.rebeladmin.com/2018/07/step-step-guide-azure-point-site-vpn/
+
+https://www.c-sharpcorner.com/article/step-by-step-demo-of-creating-a-point-to-site-vpn-connection2/
+
+https://www.assistanz.com/steps-to-create-point-to-site-vpn-using-azure-portal/
+
+1 Create Resource Group -- Name - VPN (Location East US)
+== Virtual Network====
+2 Virtual network (name -Vpn-Vnet  address prefix: 172.16.0.0/16)
+3 Subnet (172.16.1.0/24)
+4 Gateway Subnet (172.16.0.0/24)
+
+=====Public IP====
+Ip address should be dynamic
+
+===== Virtual Network Gateway=======================================================
+
+*****Make sure GatewaySubnet was created in virtual network or not . if not creaate before creating virtual network gateway
+We are supposed to provide following details:
+
+Name
+Location ( location should be same virtual network)
+Gateway Tpye : VPN
+VPN TYpe: Route Based
+SKU: Choose any one
+Generation: generation 1
+
+Virtual network : choose correct virtual network where gatewaysubnet was created
+
+Public IP: Choose existing one and verify whether IPname was correctly loaded or not.
+
+Click on review+Create
+
+============================================================================================
+
+Create Root and Client Certificates for the sake of VPN connectivity from our local to Azure virtula network
+============================================================================================================
+
+------ROOTcert --------
+$cert=New-SelfSignedCertificate -Type Custom -KeySpec Signature -Subject "ROOTCERT" -KeyExportPolicy Exportable -HashAlgorithm sha256 -KeyLength 2048 -CertStoreLocation 'Cert:\CurrentUser\My' -KeyUsageProperty Sign -KeyUsage CertSign
+-----Client Cert-------
+New-SelfSignedCertificate -Type Custom -DnsName CLIENT -KeySpec Signature -Subject "CN=ClientCERT" -KeyExportPolicy Exportable -HashAlgorithm sha256 -KeyLength 2048 -CertStoreLocation 'Cert:\CurrentUser\My' -Signer $cert -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.2")
+
+Press Windows+R (run prompt)
+type MMC --> enter key
+
+1) one Microsoft management console opens follow below instructions
+File-->Add/remove snap in --> choose certificates -->add --> choose current user/machine-->OK
+
+2) Expand certificates-->personal -- right hand side look for the root and client certificates are present or not. make sure certs are available before proceed
+3) Right click on RootCert --> alltasks-->export -->next-->next(no private key export choose second option)-->choose base64 encode-->choose the certifcate path to save the cert(name --Root)-->finish
+4) Right click on Client Cert -->All tasks --> export--> next->choose yes, with privatekey --> next (do not modify any options)--> select password cehck box --> enter password (ex:India@123)--> choose the path to save .pfx-->finish
+
+================================================================================================================
+Open Azure port and open Virtual network gateway
+
+1) In the left hand side menu choose --> Point-to-site configuration
+2) click on configuration in right hand side and then enter below details:
+
+  Address pool : 10.0.0.0/24 ( this IP should not be overlapped)
+  Choose Tunnel type : IKEV2 and SSTP(SSL)
+  ======================
+  
+  before enter certificate details we need copy the certificate code with below instructions
+  right click on root.cer --> open with notepad /notepad++ --> copy code expect ----begin certificate and --- End certifcate --> make sure no space in between entire code --> copy the code
+  ======================
+  switch to VPN gateway and paste certificate code which copied earlier
+  
+  Name: root value : copied certificate code
+  Click on Save and wait for few mins until complete
+  
+  ONCE COMPLETE CLICK ON DOWNLOAD VPN CLIENT --> ONCE DOWNLOAD COMPLETE --> EXTRACT IT AND COPY Windowsamd64.EXE INTO CERTIFICATE FOLDER --> INSTALL VPN CLIENT.EXE 
+  
+  VERIFY VPN CONNECTED OR NOT. IF NOT CONNECTED PLEASE CROSS VERIFY CERTIFICATE DETAILS
+  
+================================
+  
+  Provions VM with pulic IP as NONE --> One VM created then copy private IP and verify RDP
+  
+=========================VPN validation complete=================================================================
+##################################### END OF VPN AND VM CREATION ######################################################## 
+
+01/06/2020
+
+Chocolatey INSTALL
+>> Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
+
+To use Azure PowerShell in PowerShell 5.1 on Windows:
+
+Update to Windows PowerShell 5.1. If you're on Windows 10 version 1607 or higher, you already have PowerShell 5.1 installed.
+Install .NET Framework 4.7.2 or later.
+Make sure you have the latest version of PowerShellGet. Run Install-Module -Name PowerShellGet -Force.
+
+>> Install-Module -Name PowerShellGet -Force
+>> Install-Module -Name Az   -------> To install Az module (AzureRM previous name)
+>> import-module az -Verbose -Force
+>> Set-ExecutionPolicy Unrestricted
+>> Get-Module
+>> Connect-AzAccount
+############################################################################################################################
+
+02/06/2020
+
+POWERSHELL COMMANDS
+--------------------------
+Get-Moudle cmdlet is used for getting all the modules in powershell
+Import-Module Az is used getting 'Az' module
+>> Import-Module az   ---> to install Az module
+>> Get-Module
+Azure Account Login-Mechanism:
+-----------------------------
+To connect azure portal from powershell use below cmdlet
+>> Connect-AzAccount   ---> To login into Azure account
+
+https://docs.atomicscope.com/docs/creating-service-principal  ---> Complete Document
+
+Service Principal:
+------------------
+A Service Principal is an application within Azure Active Directory, which is authorized to access resources or resource group in Azure. ... 
+You can assign permissions to the service principal that are different than your own Azure account permissions.
+#1 Login thru service principal to azure portal using power shell *****while creating service principle role will be contributor
+>> $sp=New-AzADServicePrincipal -DisplayName "RAJA"
+>> $sp
+<output>
+Secret                : System.Security.SecureString
+ServicePrincipalNames : {77cc8ded-d210-424f-a250-13ec215aec78, http://RAJA}
+ApplicationId         : 77cc8ded-d210-424f-a250-13ec215aec78
+ObjectType            : ServicePrincipal
+DisplayName           : RAJA
+Id                    : 8b0c5f3f-c556-493c-8003-08a5739b3ef6
+Type                  :
+
+
+#2 converting secure string to unsecure string
+>> $unsecure=ConvertFrom-SecureString -SecureString $sp.Secret  
+
+#3 converting secure string to binary string
+>> $binarySTR=[System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($sp.Secret)
+>> $binarySTR
+2464439934856
+
+#4 converting binary string to pointer for real password
+>> $password=[System.Runtime.InteropServices.Marshal]::PtrToStringAuto($binarySTR)
+>> $password
+f4b5b5f2-56a2-4c62-8ead-250c95f42852
+
+#5 convert the password to secure string again 
+>> $securepassword=ConvertTo-SecureString $password -AsPlainText -Force
+
+#6 Creating credentials
+>> $creds=New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList ($sp.ApplicationId, $securepassword)
+>> $creds
+
+UserName                                                 Password
+--------                                                 --------
+77cc8ded-d210-424f-a250-13ec215aec78 System.Security.SecureString
+
+#7 Getting the tenant id
+>> $tenant=(Get-AzContext).Tenant.Id
+>> $tenant
+8472dafb-f62e-4879-b123-1e7d871ef9ab
+
+#8 Getting the subscription id
+>> $subscriptionid=(Get-AzContext).Subscription.Id
+>> $subscriptionid
+4b32eb0d-2356-47e9-a8db-088b3d2ac170
+
+#9 connect to azure account
+>> Connect-AzAccount -ServicePrincipal -Credential $creds -Tenant $tenant -Subscription $subscriptionid
+
+Account                              SubscriptionName TenantId                             Environment
+-------                              ---------------- --------                             -----------
+77cc8ded-d210-424f-a250-13ec215aec78 Free Trial       8472dafb-f62e-4879-b123-1e7d871ef9ab AzureCloud
+
+#10 Logout from azure account
+>>> Logout-AzAccount
+
+03/06/2020
+
+#declare variables
+$resourcegroup="RG800"
+$location="southcentralus"
+$vnetname="vnet800"
+$addressprefix="172.16.0.0/16"
+$subnetname="Subnet1"
+$Subnetaddressprefix="172.16.1.0/24"
+$vmName="VM"
+
+
+#create resource group
+$rg=new-azresourcegroup -name $resourcegroup -location $location
+
+#create virtual network
+$vnet=New-AzVirtualNetwork -name $vnetname -ResourceGroupName $resourcegroup -location $location -addressprefix $addressprefix -force -verbose
+
+#create subnet for existing virtul network
+$subnet=add-AzVirtualNetworkSubnetConfig -Name $subnetname -AddressPrefix $Subnetaddressprefix -virtualNetwork $vnet
+
+#adding gateway subnet
+$gwsubnet=add-azvirtualnetworksubnetconfig -name "GatewaySubnet" -AddressPrefix "172.16.0.0/24" -virtualNetwork $vnet
+#update subnet into existing virtual network
+$vnet | set-azvirtualnetwork 
+
+#create virtual machine
+new-azvm -ResourceGroupName $resourcegroup -Location $location -Name $vmName -VirtualNetworkName $vnetname -SubnetName $subnetname  -AsJob
+-----------------------------------------------------
+Connect-AzAccount 
+
+Get-AzADServicePrincipal -DisplayName "RAJA" -Verbose  #getting ServicePrincipal
+
+$user='raja'
+$pwd='Password@123'| ConvertTo-SecureString -Force -AsPlainText
+$cred=New-Object PSCredential($user,$pwd)
+
+$rgname="RAJA"
+$locname="eastus"
+$vnetname="RAJAnet"
+$addprefix="10.1.0.0/16"
+$subnetname="RAJAsubnet-1"
+$subnetaddprefix="10.1.1.0/24"
+$vmname="RAJAVM"
+
+$rgroup=New-AzResourceGroup -Name $rgname -Location $locname -Force -Verbose
+
+$virtualnw=New-AzVirtualNetwork -Name $vnetname -ResourceGroupName $rgname -Location $locname -AddressPrefix $addprefix -Force -Verbose
+
+$sub=Add-AzVirtualNetworkSubnetConfig -Name $subnetname -VirtualNetwork $virtualnw -AddressPrefix $subnetaddprefix
+
+$gatewaysub=Add-AzVirtualNetworkSubnetConfig -Name "GatewaySubnet" -VirtualNetwork $virtualnw -AddressPrefix 10.0.2.0/24 
+
+$virtualnw |Set-AzVirtualNetwork
+
+
+New-AzVM -Name $vmname -ResourceGroupName $rgname -Location $locname -VirtualNetworkName $vnetname -SubnetName $subnetname -AsJob -Credential $cred
+
+Remove-AzResource -ResourceGroupName $rgname -resorcetype $vmname -Force -verbose
+
+Get-AzResource | Remove-AzResource -Force -verbose#to wipe all resourcegroups
+Get-AzResource -ResourceGroupName $rgname| Remove-AzResource -Force -verbose #to wipe specific Resource group
+
+Get-AzResourceGroup -Name $rgname 
+--------------------------------------------------------------------------------------------
+
+04/06/2020
+************ IMP CMD
+>> New-NetFirewallRule –DisplayName "Allow ICMPv4-In" –Protocol ICMPv4
+
+VM1
+Virtual network/subnet: Vnet1/Subnet-1
+NIC Public IP: 52.186.156.91
+NIC Private IP: 10.1.1.4
+
+VM2
+Virtual network/subnet: Vnet2/subnet-2
+NIC Public IP: 13.82.147.249
+NIC Private IP: 10.2.1.4
+
+ping 13.82.147.249
+ping 52.186.156.91
+
+Install-Module -Name Az
+import-module az -Verbose -Force
+Get-Module
+
+Connect-AzAccount 
+
+Get-AzADServicePrincipal -DisplayName "RAJA" -Verbose  #getting ServicePrincipal
+
+Connect-AzAccount 
+Get-AzADServicePrincipal -DisplayName "RAJA" -Verbose  #getting ServicePrincipal
+$user='raja'
+$pwd='Password@123'| ConvertTo-SecureString -Force -AsPlainText
+$cred=New-Object PSCredential($user,$pwd)
+
+$rgname="RAJA"
+$locname="eastus"
+
+$vnetname1="RAJAnet1"
+$addprefix1="10.1.0.0/16"
+$subnetname1="subnet-1"
+$subnetaddprefix1="10.1.1.0/24"
+$vmname1="RAJAVM1"
+
+$vnetname2="RAJAnet2"
+$addprefix2="10.2.0.0/16"
+$subnetname2="subnet-2"
+$subnetaddprefix2="10.2.1.0/24"
+$vmname2="RAJAVM2"
+
+$rgroup=New-AzResourceGroup -Name $rgname -Location $locname -Force -Verbose
+
+$virtualnw1=New-AzVirtualNetwork -Name $vnetname1 -ResourceGroupName $rgname -Location $locname -AddressPrefix $addprefix1 -Force -Verbose
+$sub1=Add-AzVirtualNetworkSubnetConfig -Name $subnetname1 -VirtualNetwork $virtualnw1 -AddressPrefix $subnetaddprefix1
+#$gatewaysub=Add-AzVirtualNetworkSubnetConfig -Name "GatewaySubnet" -VirtualNetwork $virtualnw1-AddressPrefix 10.0.1.0/24 
+$virtualnw1 |Set-AzVirtualNetwork
+
+$virtualnw2=New-AzVirtualNetwork -Name $vnetname2 -ResourceGroupName $rgname -Location $locname -AddressPrefix $addprefix2 -Force -Verbose
+$sub1=Add-AzVirtualNetworkSubnetConfig -Name $subnetname2 -VirtualNetwork $virtualnw2 -AddressPrefix $subnetaddprefix2
+#$gatewaysub=Add-AzVirtualNetworkSubnetConfig -Name "GatewaySubnet" -VirtualNetwork $virtualnw2 -AddressPrefix 10.0.1.0/24 
+$virtualnw2 |Set-AzVirtualNetwork
+
+Add-AzVirtualNetworkPeering -Name $vnetname1-to-vnetname2 -VirtualNetwork $virtualnw1 -RemoteVirtualNetworkId $virtualnw2.Id
+Add-AzVirtualNetworkPeering -Name $vnetname2-to-vnetname1 -VirtualNetwork $virtualnw2 -RemoteVirtualNetworkId $virtualnw1.Id
+
+New-AzVM -Name $vmname1 -ResourceGroupName $rgname -Location $locname -VirtualNetworkName $vnetname1 -SubnetName $subnetname1 -AsJob -Credential $cred
+New-AzVM -Name $vmname2 -ResourceGroupName $rgname -Location $locname -VirtualNetworkName $vnetname2 -SubnetName $subnetname2 -AsJob -Credential $cred
+
+Remove-AzResource -ResourceGroupName $rgname -resorcetype $vmname -Force -verbose
+
+Get-AzResource | Remove-AzResource -Force -verbose#to wipe all resourcegroups
+Get-AzResource -ResourceGroupName $rgname| Remove-AzResource -Force -verbose #to wipe specific Resource group
+
+Get-AzResourceGroup -Name $rgname 
+
+---------------------------------------------------------------------------------------------------------
+
+APPLICATION GATEWAY
+
+set-AzVMExtension -ResourceGroupName "APP" -ExtensionName IIS -VMName VM-front -Publisher microsoft.compute -ExtensionType CustomScriptExtension -TypeHandlerVersion 1.4 -SettingString '{"commandToExecute": "powershell add-windowsfeature web-server; powershell add-content -path \"C:\\inetpub\\wwwroot\\default.htm\" -value $($env:Computername)"}' -Location eastus
+set-AzVMExtension -ResourceGroupName "APP" -ExtensionName IIS -VMName BACK-VM-2 -Publisher microsoft.compute -ExtensionType CustomScriptExtension -TypeHandlerVersion 1.4 -SettingString '{"commandToExecute": "powershell add-windowsfeature web-server; powershell add-content -path \"C:\\inetpub\\wwwroot\\default.htm\" -value $($env:Computername)"}' -Location eastus
+
+STEPS FOR APPLICATION GATEWAY:
+1. ResourceGroup
+2. VIrtual Network
+  Subnet-1=FrontEnd
+  Subnet-2=Backend
+3. Public IP 
+4. Virtual Machines --2 or VMSS or APP Services
+3. Application Gateway
+  
+  Configuration
+  Add Route Table
+
+6. Cloud Shell open and add storage
+7. Run Azextension command with VM and Resource name. (Run commands = noof vms)  
+set-AzVMExtension -ResourceGroupName "APP" -ExtensionName IIS -VMName VM-front -Publisher microsoft.compute -ExtensionType CustomScriptExtension -TypeHandlerVersion 1.4 -SettingString '{"commandToExecute": "powershell add-windowsfeature web-server; powershell add-content -path \"C:\\inetpub\\wwwroot\\default.htm\" -value $($env:Computername)"}' -Location eastus
+set-AzVMExtension -ResourceGroupName "APP" -ExtensionName IIS -VMName BACK-VM-2 -Publisher microsoft.compute -ExtensionType CustomScriptExtension -TypeHandlerVersion 1.4 -SettingString '{"commandToExecute": "powershell add-windowsfeature web-server; powershell add-content -path \"C:\\inetpub\\wwwroot\\default.htm\" -value $($env:Computername)"}' -Location eastus
+
+-----------------------------------------------------------------------------------------------------------
+10/06/2020 LOAD Balancer
+Install-WindowsFeature -Name Web-server -IncludeManagementTools -Verbose
+Remove-Item C:\inetpub\wwwroot\iisstart.htm -Force -Recurse -Verbose
+Add-Content -Path "C:\inetpub\wwwroot\iisstart.htm" -Value $("Hello LoadBalancer Node " + $env:COMPUTERNAME)
+
+1. Resource Group
+2. Virtual Network	
+     Subnet
+3. Network Security Group
+4. OA
+5. Load Balancer
+6. VM's
+
+
+--------------------------------------------------------------------------------------------------------------
+ 
+FTPS Endpoint: ftps://waws-prod-blu-157.ftp.azurewebsites.windows.net/site/wwwroot
+Username: APP1447\$APP1447
+Password: HhTfC2EAl5ZGwC8Dxchv7mpNJHWRxshE61Ce6tAJhleGabC0MqSpklGg2mGD
+
+------------------------------------------------------------------------------------------------------------
+13/06/2020
+Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
+
+------------------------------------------------------------------------------------------------------------
+21/06/2020
+
+$ az login --tenant 8472dafb-f62e-4879-b123-1e7d871ef9ab
+
+"cloudName": "AzureCloud",
+    "homeTenantId": "8472dafb-f62e-4879-b123-1e7d871ef9ab",
+    "id": "4b32eb0d-2356-47e9-a8db-088b3d2ac170",
+    "isDefault": true,
+    "managedByTenants": [],
+    "name": "Free Trial",
+    "state": "Enabled",
+    "tenantId": "8472dafb-f62e-4879-b123-1e7d871ef9ab",
+    "user": {
+      "name": "crsreddy15@outlook.com",
+      "type": "user"
+
+    "cloudName": "AzureCloud",
+    "homeTenantId": "8472dafb-f62e-4879-b123-1e7d871ef9ab",
+    "id": "4b32eb0d-2356-47e9-a8db-088b3d2ac170",
+    "isDefault": true,
+    "managedByTenants": [],
+    "name": "Free Trial",
+    "state": "Enabled",
+    "tenantId": "8472dafb-f62e-4879-b123-1e7d871ef9ab",
+    "user": {
+      "name": "crsreddy15@outlook.com",
+      "type": "user"
+
+ C:\WINDOWS\system32> az ad sp create-for-rbac -n "Rajaterraform"
+Changing "Rajaterraform" to a valid URI of "http://Rajaterraform", which is the required format used for service principal names
+Creating a role assignment under the scope of "/subscriptions/4b32eb0d-2356-47e9-a8db-088b3d2ac170"
+{
+  "appId": "13dd1236-dd6f-4deb-b92a-5df5ac3090cf",
+  "displayName": "Rajaterraform",
+  "name": "http://Rajaterraform",
+  "password": "7qmezFTP91rAT_IJs7AKdSL5h2C1J-Voj-",
+  "tenant": "8472dafb-f62e-4879-b123-1e7d871ef9ab"
+  }
+
+----------------
+Terraform commands
+az ad sp create-for-rbac -n "MyApp"
+$ terraform.exe init
+az vm list-sizes -l eastus -o table
+
+resource "azure_security_group_rule" "azraj" {
+  name                        = "RDP"
+  priority                    = 110
+  direction                   = "Inbound"
+  access                      = "Allow"
+  protocol                    = "Tcp"
+  source_port_range           = "*"
+  destination_port_range      = "3389" #443 80
+  source_address_prefix       = "*"
+  destination_address_prefix  = "*"
+  resource_group_name         = azurerm_resource_group.azraj.name
+  network_security_group_name = azurerm_network_security_group.azraj.name
+}
+
+az ad sp create-for-rbac --role="Contributor" --scopes="/subscriptions/4b32eb0d-2356-47e9-a8db-088b3d2ac170"
+
+No available provider "azure" plugins are compatible with this Terraform version.
+
+From time to time, new Terraform major releases can change the requirements for
+plugins such that older plugins become incompatible.
+
+Terraform checked all of the plugin versions matching the given constraint:
+    (any version)
+
+Unfortunately, none of the suitable versions are compatible with this version
+of Terraform. If you have recently upgraded Terraform, it may be necessary to
+move to a newer major release of this provider. Alternatively, if you are
+attempting to upgrade the provider to a new major version you may need to
+also upgrade Terraform to support the new version.
+
+Consult the documentation for this provider for more information on
+compatibility between provider versions and Terraform versions.
+
+
+Error: no available version is compatible with this version of Terraform
+------------------------------------
+22/06/2020
+Multiple VMS in TerrFORM
+https://docs.microsoft.com/en-us/azure/developer/terraform/create-vm-cluster-with-infrastructure
+https://docs.microsoft.com/en-us/azure/developer/terraform/create-linux-virtual-machine-with-infrastructure
+
+Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
+
+choco install visualstudio2019buildtools
+goto msbuild extension in c programs
+set path of MSBuild.exe in environment variables
+
+Run MSBuild.exe #to check the variable path working or not
+
+choco install git.install
+
+create a folder and clone git
+
+$ git clone https:// abc.crsreddy.git -----> example
+
+
+---------------------------------------------------------
+24/06/2020
+Build A Project
+CICD Build Process:
+
+Traditional -
+ Dotnet : Build Engine (MSBuild -- microsoft build engine)
+		: Restore engine (Nuget -- nuget package manager which pull the required packaes from internet)
+		: Project (ASP.Net MVC 5)
+		: getting the source code from github repo into local work space
+		    1) Restore application dependencies using nuget.exe  ex: nuget restore "provide project name or solution (.sln)"
+			2) msbuild ".proj| .sln" 
+
+			
+Steps Involved:
+1)Create virtual machine with 4cpu's and 16gb ram
+2)Once vm is created, login into the vm
+3)Open the powershell as adminstrator and need to install the choco by executing the below script
+Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
+
+4)Need to install the visualstudio2019buildtools in vm, run the below command in powershell
+choco install visualstudio2019buildtools
+
+5)After install, it will ask for reboot the vm, run the below command for reboot.
+restart-computer
+
+6)Once restarted, open the below path and check MSBuild.exe is there or not
+C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\MSBuild\Current\Bin\
+
+7)Copy the MSBuild.exe path and right click on ThisPC(my computer)-> Properties -> click on Advanced System Settings -> click on Environment variables
+->select Path under System variables -> click on Edit -> click on New -> Paste the copied MSBuild.exe path -> click on ok
+
+8)Open powershell and run the below command
+MSBuild.exe /?
+
+*Q) on what basis u will recognize which plotform its running?
+based on configuration properties will say its running on x64 or x86
+
+9)Need to install github in vm, run the below command in powershell
+choco install git.install
+
+10)After install, type 'git' in powershell. sometimes getting error, to load need to restart the machine. Otherwise open cmd prompt as adminstrator and type 'git' and enter.
+
+11)Need to install nuget packages in vm, run the below command in powershell
+choco install nuget.commandline
+
+12)After install, type 'nuget.exe' in powershell
+
+13)Need to install google chrome in vm, run the below command in powershell
+choco install googlechrome
+
+14)Open googlechrome and search for 'asp.net mvc 5 projects in github' and select the project (ex:SmartStoreNet)
+
+15)Click on Clone in SmartStoreNet project and copy the url (https://github.com/smartstore/SmartStoreNET.git)
+
+16)Need to create new directory(folder), run the below command in powershell
+New-Item C:\GitHubProjects\Traditional -ItemType Directory
+
+17)Need to change the directory in cmd prompt to newly created directory, run the below command in cmd prompt
+cd C:\GitHubProjects\Traditional
+
+18)Need to clone(get) the project files from github into the newly created directory, run the below command in cmd prompt
+git clone <github url>
+git clone https://github.com/smartstore/SmartStoreNET.git
+
+19)After cloning, check all the project files are downloaded in directory(C:\GitHubProjects\Traditional)
+
+20)Now need to restore the nuget packages of the project, run the below command in powershell
+cd C:\GitHubProjects\Traditional\SmartStoreNET
+nuget restore src\SmartStoreNET.sln
+
+21) Restoring is failed due to missing of 'microsoft.webapplication.target' but packages are installed.
+
+22)Open Visual Studio Installer -> click on Modify ->
+select the below tools under WorkLoads
+	-C++ Build tools
+	-.NET desktop build tools
+	-Universal Windows Platoform build tools
+	-web development build tools
+	-Data storage and processing build tools
+	-Node.js build tools
+	-.NET core build tools
+select the below tools under Individual Components
+	-select all frameworks except EOL under .Net
+	-select nuget package manager under Code Tools
+	-select windows workflow foundation build tools under development activities
+click on modify
+
+Note: To avoid the above error, install all the above tools after visualstudio2019buildtools installation.
+
+*Q)how it know what are all packages installed?
+it will install based on package names in package.config file 
+
+22) After installed all the tools, need to restore the nuget packages again
+nuget restore src\SmartStoreNET.sln
+
+Note: Before restoring need to delete the packages folder in project
+
+23)After restoring nuget successfull, need to build the project with buildengine msbuild ".proj/.sln", run the below command in powershell
+msbuild src\SmartStoreNET.sln -t:build
+
+*Q)Build(compliation) completed where is the output?
+it will store in the bin of the same project but it will not accurate, we will set specifically the output folder
+
+24)run the below command in powershell
+msbuild src\SmartStoreNET.sln -t:build -p:configuration="Release" -p:platform="Any CPU" -p:outdir="C:/Test"
+
+25)output(atrifacts) stored in Test directory, 
+
+For Testing purpose, whether build is happened corectly.
+26)Install IIS in vm, execute the below command in powershell
+Install-WindowsFeature -Name web-server -IncludeManagementTools
+Install-WindowsFeature -Name web-server -IncludeAllSubFeature
+
+27)open IIS(inetmgr), create new website and add output(Test) path(C:\Test\_PublishedWebsites\SmartStore.Web) and run the site
+its throwing error "Could not find a part of the path 'C:\Test\_PublishedWebsites\SmartStore.Web\bin\roslyn\csc.exe'."
+
+28) copy the roslyn folder in proj folder and paste in bin of Test folder and re-run the website.(it working as excpected)
+
+https://github.com/jojozhuang/game-store-aspnet.git
+
+
+-----------------------------------------------------------------------------------------------------
+25/06/2020
+Token: 
+4k3sqayurwfeniquqbeurt4pzpvf7gxlx6tuaubtx7chhveg7pkq
+
+ON Remote Server
+
+Creation of PAT (Personal Access Token)
+
+Step1: LOgin into Dev.azure.com
+Step2: Top Right hand side select usersettings --> choose personal tokens -->Add token --> enter name , date time , choose full accesss--> save/add 
+Step3: Copy the token code before closing the windows ( we can't retrieve once closed. so careful)
+
+Step 4 :Agent setup example
+
+
+PS C:\AZAgent> .\config.cmd
+
+  ___                      ______ _            _ _
+ / _ \                     | ___ (_)          | (_)
+/ /_\ \_____   _ _ __ ___  | |_/ /_ _ __   ___| |_ _ __   ___  ___
+|  _  |_  / | | | '__/ _ \ |  __/| | '_ \ / _ \ | | '_ \ / _ \/ __|
+| | | |/ /| |_| | | |  __/ | |   | | |_) |  __/ | | | | |  __/\__ \
+\_| |_/___|\__,_|_|  \___| \_|   |_| .__/ \___|_|_|_| |_|\___||___/
+                                   | |
+        agent v2.170.1             |_|          (commit bb272bb)
+
+
+>> Connect:
+
+Enter server URL > https://dev.azure.com/az800/
+Enter authentication type (press enter for PAT) >
+Enter personal access token > ****************************************************
+Connecting to server ...
+
+>> Register Agent:
+
+Enter agent pool (press enter for default) > AZ800
+Enter agent name (press enter for Vm1) > Az800-Agent1
+Scanning for tool capabilities.
+Connecting to the server.
+Successfully added the agent
+Testing agent connection.
+Enter work folder (press enter for _work) > C:\Agent_workSpace
+2020-06-25 03:07:10Z: Settings Saved.
+Enter run agent as service? (Y/N) (press enter for N) > Y
+Enter User account to use for the service (press enter for NT AUTHORITY\NETWORK SERVICE) > azrajesh
+Enter Password for the account Vm1\azrajesh > ************
+Error reported in diagnostic logs. Please examine the log for more details.
+    - C:\AZAgent\_diag\Agent_20200625-030436-utc.log
+Granting file permissions to 'Vm1\azrajesh'.
+Service vstsagent.az800.AZ800.Az800-Agent1 successfully installed
+Service vstsagent.az800.AZ800.Az800-Agent1 successfully set recovery option
+Service vstsagent.az800.AZ800.Az800-Agent1 successfully set to delayed auto start
+Service vstsagent.az800.AZ800.Az800-Agent1 successfully configured
+Service vstsagent.az800.AZ800.Az800-Agent1 started successfully
+PS C:\AZAgent>
+
+===============>
+Steps
+login dev.azure.com
+>create organsation
+>create personal acces token     (found in organistional setting on icon peoples image)
+ personal token values:
+      name-venkat
+	  organisation-gmunna4444
+	  expiry date - max upto 1yr
+	  scope-full acces
+ >create> copy the token value in note pad
+oganisational setting
+agent pool
+Add newagent
+click on agent download for windows (in remote server)
+create new files in windows c
+copy downloded agent files into new folder
+
+>open powershell
+go to agent folder (Ex:Agent location C:\Agent)
+execute the following command in powershell
+cd C:\Agent #change directory to agent file location
+>.\config.cmd  # run this command
+enter server url
+> https://dev.azure.com/<oganisational name>
+ https://dev.azure.com/gmunna4444/  (url from organistional setting)
+ 
+>copy above personaal acces token from notepad
+>enter agent poolname  -
+>enter agent name      -your wish
+
+>enter a work folder in remote machine (example c:\project1)
+>press yes
+>enter your VM user id
+>enter your VM password
+>agent is strated succes fully
+>go to agent pool ,click on poolname-agent
+
+>go to your project -> click in repo -> import repository ->select git ->copy the git url click on input
+>pipeline >create new pipeline ->click on classic editor >slect on empty job->
+ 
+>Get sources -clean value to true-> clean option to all build directories->clickon agent job->save & continue->
+ 
+
+
+
+
+organisation sett
+create project
+create agents pool
+
+https://docs.microsoft.com/en-us/azure/devops/pipelines/build/variables?view=azure-devops&tabs=yaml
+
+in option tab --> build number format --> $(Date:yyyyMMdd).$(Rev:r)-$(Build.DefinitionName)
+
+Build Parameters
+-t:build -p:outdir=$(Build.artifactstagingDirectory) -p:generateprojectspecificoutputfolder=true
+
+Token: bhfkiojkjeqgqidahenjdcn57pihrqec772teeabaj4d7o6cisrq
+zb5sumskhqxis2fn2zxd7hzffrqw6li6m4xd5h6ll7fhvaj3v2kq
+
+https://dev.azure.com/crsreddy-org/
+
+in option tab --> build number format --> $(Date:yyyyMMdd).$(Rev:r)-$(Build.DefinitionName)
+
+-t:build  -p:outdir=$(Build.artifactstagingDirectory) -p:generateprojectspecificoutputfolder=true
+
+
+------------------------------------------------------------------------------------------------------
+
+
+$packagespath="$(Build.artifactstagingDirectory)"
+$packages=(Get-ChildItem -Path $packagespath).Name
+New-item "$packagespath\Packages" -ItemType Directory -Force
+
+if($packages.Length -ne 0){
+    Foreach($package in $packages){
+        if(Test-path "$packagespath\$package\_Publishedwebsites")
+        {
+            $folderpath="$packagespath\$package\_Publishedwebsites\$package\*"
+            #zip the packages
+            Compress-Archive $folderpath -DestinationPath "$packagespath\packages\$package.zip" -Force 
+        }
+        else{
+            Write-Warning -Message "No published websites found in current package :$package folder "
+        }
+    }
+}
+else{
+    Write-Error -Message "No packages found in the current folder" -ErrorAction stop
+    exit 1
+}
+
+
+Artifact directory path
+$(Build.artifactstagingDirectory)\packages
+
+https://github.com/jojozhuang/game-store-aspnet.git
+https://github.com/arichika/AspNet.Identity.Oracle
+https://github.com/RickStrahl/Westwind.Web.Markdown
+https://github.com/saineshwar/WebTimeSheetManagement
+
+ASP.Net Project IN Pipeline:
+Options: 
+ Build number format = $(Date:yyyyMMdd).$(Rev:r)-$(Build.DefinitionName)
+Tasks:
+Get Sources: Clean=True, Clean Option: All Build Directories
+Agent Job1:
+ Nuget Restore 				=>Command=restore, Path to Sol: **/*.sln
+ Build Solution 			=> Name=$(build.sourcesdirectory)\<.sln path>, Project= $(build.sourcesdirectory)\src\SmartStoreNet.sln
+                              Version=Lastest, Architect=MsBuilsx86, Platform=Any CPU, Configuration=Release,
+							  MsBuild Arguments=-t:build  -p:outdir=$(Build.artifactstagingDirectory) -p:generateprojectspecificoutputfolder=true
+ VsTest - Test Assemble 	=>No edits all default values
+ Powershell Script			=>Inline and paste the code
+ Publish Pipeline Artifacts =>File Or Dir Path=$(Build.artifactstagingDirectory)\<packages file name where zip files are packaged>
+                              Artif Name= Name. 
+
+
+
+C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\MSBuild\Microsoft\VisualStudio\v16.0\WebApplications\Microsoft.WebApplication.targets(182,5) "Template\vendor\jquery-easing\jquery.easing.compatibility.js" 
+##[error]C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\MSBuild\Microsoft\VisualStudio\v16.0\WebApplications\Microsoft.WebApplication.targets(182,5): Error MSB3030: Could not copy the file "Template\vendor\jquery-easing\jquery.easing.min.js" because it was not found.
+##[error]C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\MSBuild\Microsoft\VisualStudio\v16.0\WebApplications\Microsoft.WebApplication.targets(182,5): Error MSB3030: Could not copy the file "Template\vendor\jquery-easing\jquery.easing.js" because it was not found.
+
+-----------------------------------------------------------------------------------------------------------------
+#service principal
+$user="xxxxxxxxxxxxxxx" # provide application_id as user id
+$secret=ConvertTo-SecureString -String "xxxxxxxxxxxxxxx" -AsPlainText -Force  # provide password as client secret
+$spcreds=New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList ($user, $secret)
+
+$tenant="xxxxxxxxxxxxxxx" # provide tenant ID
+
+Connect-AzAccount -ServicePrincipal -Credential $spcreds -Tenant $tenant
+
+# variables
+
+$resourcegroup="RG360"
+$location= "eastus"
+$vnetname="ubantu-vnet"
+$address_space="10.49.0.0/16"
+$subnet="ubantusubnet"
+$address_prefix="10.49.1.0/24"
+
+
+$vmName="ubantuvm"
+$vm_admin_user="azadmin"
+#user credentials
+$password=ConvertTo-SecureString ' ' -AsPlainText -Force
+
+$creds=New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList ($vm_admin_user, $password)
+
+# resource
+$rg=New-AzResourceGroup -Name $resourcegroup -Location $location
+
+#subnet
+$subnetconfig=New-AzVirtualNetworkSubnetConfig -Name $subnet -AddressPrefix $address_prefix
+
+#vnet
+$vnet=new-azvirtualNetwork -Name $vnetname -ResourceGroupName $rg.ResourceGroupName -Location $rg.Location -AddressPrefix $address_space -Subnet $subnetconfig 
+
+#public IP
+$pip=New-AzPublicIpAddress -Name "$vmName-ip" -ResourceGroupName $rg.ResourceGroupName `
+-Location $rg.Location -AllocationMethod Static
+
+# create inbound rule to connect via ssh
+$nsgSSHRule=New-AzNetworkSecurityRuleConfig -Name "sshrule" -Protocol Tcp -Direction Inbound `
+-Priority 550 -SourceAddressPrefix * -SourcePortRange * -DestinationAddressPrefix * -DestinationPortRange 22 -Access Allow
+
+#create NSG
+$nsg=New-AzNetworkSecurityGroup -ResourceGroupName $rg.ResourceGroupName `
+-Location $rg.Location -Name "nsg630" -SecurityRules $nsgSSHRule
+
+#nic
+$nic= New-AzNetworkInterface -Name "$vmName-nic" -ResourceGroupName $rg.ResourceGroupName `
+-Location $rg.Location -SubnetId $vnet.Subnets[0].Id -PublicIpAddressId $pip.Id -NetworkSecurityGroupId $nsg.Id
+
+#create vm configuration
+$vmconfig= New-AzVMConfig -VMName $vmName -VMSize Standard_B2s | `
+Set-AzVMOperatingSystem -Linux -ComputerName $vmName -Credential $creds -DisablePasswordAuthentication |`
+Set-AzVMSourceImage -PublisherName Canonical -Offer UbuntuServer -Skus 18.04-LTS -Version latest| `
+Add-AzVMNetworkInterface -Id $nic.Id
+
+<#
+choco install openssh
+refreshenv
+Get-Service -Name ssh-agent | Set-Service -StartupType Manual
+start-service ssh-agent
+get-serviec ssh-agent # status should be running mode
+cd C:\users\your profile\.ssh
+ssh-keygen.exe pres enter
+again press enter key without supply any value
+press enter key without supply key
+
+Check for the files in your localpath C:\users\your profile\.ssh
+ls
+files will be listed like
+Mode                LastWriteTime         Length Name
+----                -------------         ------ ----
+-a----        6/28/2020  10:20 AM           1675 id_rsa
+-a----        6/28/2020  10:20 AM            423 id_rsa.pub
+-a----        9/16/2019  12:20 PM            191 known_hosts
+#>
+#configure SSH key
+
+$sshkey=Get-Content "$env:USERPROFILE\.ssh\id_rsa.pub"
+
+Add-AzVMSshPublicKey -VM $vmconfig -KeyData $sshkey -path "/home/$vm_admin_user/.ssh/authorized_keys"
+
+#create VM
+New-azVM -ResourceGroupName $rg.ResourceGroupName -Location $rg.Location -VM $vmconfig 
+
+-----------------------------------------------------------------------------------
+
+
+https://github.com/dotnet-architecture/eShopOnWeb
+https://github.com/EduardoPires/EquinoxProject
+-c "Release" -o $(build.artifactstagingDirectory)
+
+ASP CORE
+https://github.com/dotnet-architecture/eShopOnWeb
+https://github.com/EduardoPires/EquinoxProject
+
+ASP.Net Core Pipeline ===>
+Agent Jobs:
+Dotnet Restore   			Path to project: $(build.sourcesdirectory)\<.SLN name>
+Dotnet Build     			Path to project: $(build.sourcesdirectory)\<.SLN name>  Arguments: -c "Release"  # -c = Configuration
+Dotnet Publish   			Arguments : -c "Release" -o $(build.artifactstagingDirectory) ,Note: Zip Publish should be ticked, Add Project folder ticked   # -c=Configuration -o=output directory
+Dotnet Test		 			Path to project: $(build.sourcesdirectory)\<.SLN name>
+Publish Pipeline Artifact	File or Dir: $(Build.artifactstagingDirectory),  Artifact Name: Name 
+
+
+Ex: $(build.sourcesdirectory)\Equinox.sln
+
+https://github.com/dotnet/runtime
+
+https://github.com/nbarbettini/little-aspnetcore-todo
+https://github.com/aspnet/samples
+https://github.com/Speckoz/UniLinks.git
+
+mvn clean verify -PintegrationTests
+https://github.com/eirslett/frontend-maven-plugin
+https://github.com/joeferner/node-java-maven
+https://github.com/apache/maven
+
+https://www.microsoft.com/en-us/sql-server/sql-server-downloads
+https://www.sonarqube.org/downloads/
+
+
+
+SELECT is_read_committed_snapshot_on FROM sys.databases WHERE name='sonar';
+
+ALTER DATABASE sonar SET READ_COMMITTED_SNAPSHOT ON WITH ROLLBACK IMMEDIATE;
+--------------------------------------------------------------
+04/07/2020
+https://github.com/terraform-providers/terraform-provider-azurerm/tree/master/examples/kubernetes
+
+{
+    "cloudName": "AzureCloud",
+    "homeTenantId": "3c32cea0-d906-40bc-b203-8c24f7f544f2",
+    "id": "1fdaf1b8-2436-4da1-8c0d-f668fd2b8014",
+    "isDefault": true,
+    "managedByTenants": [],
+    "name": "Free Trial",
+    "state": "Enabled",
+    "tenantId": "3c32cea0-d906-40bc-b203-8c24f7f544f2",
+    "user": {
+      "name": "crsreddy14@outlook.com",
+      "type": "user"
+
+az ad sp create-for-rbac -n "Raja"
+{
+  "appId": "0ee68b0b-6b37-445b-a692-7da74e2f6094",
+  "displayName": "RAJA",
+  "name": "http://RAJA",
+  "password": "jLIzw-0pp8lYgNJTd-em-G~4r.TQhEIZMD",
+  "tenant": "3c32cea0-d906-40bc-b203-8c24f7f544f2"
+}
+
+        client_id       = 0ee68b0b-6b37-445b-a692-7da74e2f6094
+        client_secret   = jLIzw-0pp8lYgNJTd-em-G~4r.TQhEIZMD
+
+az aks get-versions --location westus --output table
+
+1.18.2(preview)      None available
+1.18.1(preview)      1.18.2(preview)
+1.17.5(preview)      1.18.1(preview), 1.18.2(preview)
+1.17.4(preview)      1.17.5(preview), 1.18.1(preview), 1.18.2(preview)
+1.16.9 <----              1.17.4(preview), 1.17.5(preview)
+1.16.8               1.16.9, 1.17.4(preview), 1.17.5(preview)
+1.15.11              1.16.8, 1.16.9
+1.15.10              1.15.11, 1.16.8, 1.16.9
+1.14.8               1.15.10, 1.15.11
+1.14.7               1.14.8, 1.15.10, 1.15.11
+
+   1 az login
+   2 aks get-versions --location westus --output table
+   3 az aks get-versions --location westus --output table
+   4 cls
+   5 get-service ssh-agent
+   6 start-service ssh-agent
+   7 start-service ssh-agent
+   8 cls
+   9 get-service ssh-agent
+  10 start-service ssh-agent
+  11 Set-Service ssh-agent -StartupType Manual
+  12 start-service ssh-agent
+  13 get-service ssh-agent
+  14 ssh-keygen
+  C:\Users\Rajashekar\.ssh
+az ad sp create-for-rbac -n "Raja"  
+  
+terraform plan -out terrplan
+terraform apply
+terraform apply
+terraform.exe output kube_config_raw >> config
+az aks get-credentials -n <aks cluster name> -g <Resource group name>
+kubectl get nodes
+
+https://www.terraform.io/docs/providers/kubernetes/r/deployment.html
+https://www.terraform.io/docs/providers/kubernetes/guides/getting-started.html
+
+Install-Script -Name 'install-kubectl' -Scope CurrentUser -Force
+install-kubectl.ps1
+
+3d1337a120ee12fd4a3f4291cb1ecbb8de0caae6  = Token
+
+choco install sonarscanner-msbuild-net46
+https://docs.sonarqube.org/latest/analysis/coverage/
+https://community.sonarsource.com/t/azure-pipeline-code-coverage-0-in-sonarqube-maven-spring-boot-project/26227/6
+C:\sonar-scanner-msbuild\SonarScanner.MSBuild.exe begin /k:"smartstore" /v:"1.0" /n:"smartstore"
+nuget.exe restore .\src\SmartStoreNET.sln
+MSBuild.exe .\src\SmartStoreNET.sln
+MSBuild.exe .\src\SmartStoreNET.sln -t:build -p:configuration="release" -p:platform="any CPU"
+C:\sonar-scanner-msbuild\SonarScanner.MSBuild.exe end
+
+https://docs.sonarqube.org/latest/analysis/scan/sonarscanner-for-azure-devops/
+https://solidify.se/blog/sonarqube-unittests-and-codecoverage-with-a-net-core-project-in-tfs-or-azure-devops
+https://docs.microsoft.com/en-us/azure/site-recovery/migrate-tutorial-on-premises-azure
+
+https://github.com/Ismaestro/angular9-example-app
+
+npm i
+npm run builds:prod
+npm run test
+npm run test
+npm run build:library
+
+npm install -g sonarqube-scanner
+
+
+$packagespath="$(Build.artifactstagingDirectory)"
+$packages=(Get-ChildItem -Path $packagespath).Name
+New-item "$packagespath\Packages" -ItemType Directory -Force
+
+if($packages.Length -ne 0){
+    Foreach($package in $packages){
+        if(Test-path "$packagespath\$package\_Publishedwebsites")
+        {
+            $folderpath="$packagespath\$package\_Publishedwebsites\$package\*"
+            #zip the packages
+            Compress-Archive $folderpath -DestinationPath "$packagespath\packages\$package.zip" -Force -Verbose
+        }
+        else{
+            Write-Warning -Message "No published websites found in current package :$package folder "
+        }
+    }
+}
+else{
+    Write-Error -Message "No packages found in the current folder" -ErrorAction stop
+    exit 1
+}
+
+
+https://stackoverflow.com/questions/56459754/windows-machine-file-copy-devops-task-and-ip-address
+
+System.Management.Automation.ActionPreferenceStopException: The running command stopped because the preference variable "ErrorActionPreference" or common parameter is set to Stop: Connecting to remote server 52.254.15.224 failed with the following error message : The WinRM client cannot process the request. If the authentication scheme is different from Kerberos, or if the client computer is not joined to a domain, then HTTPS transport must be used or the destination machine must be added to the TrustedHosts configuration setting. Use winrm.cmd to configure TrustedHosts. Note that computers in the TrustedHosts list might not be authenticated. You can get more information about that by running the following command: winrm help config. For more information, see the about_Remote_Troubleshooting Help topic.
+LegacyVSTSPowerShellHost.exe completed with return code: -1.
+	  
+  Set-Item WSMan:\localhost\Client\TrustedHosts -Value "*" -Force -Verbose
+  
+  winrm quickconfig
+  Enable-PSRemoting -Force
+ 
+  Set-NetFirewallRule -Name 'WINRM-HTTP-In-TCP-PUBLIC' -RemoteAddress Any
+  Set-Item WSMan:\localhost\Client\TrustedHosts -Value "52.254.15.224" -Force -Verbose
+    $user="raja"
+    $password=ConvertTo-SecureString -String "Password@123" -AsPlainText -Force
+    $creds=New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList ($user, $password)
+    New-PSSession -ComputerName "52.254.15.224" -Credential $creds
+  
+  
+  New-PSSession -ComputerName "52.254.15.224" -Credential $creds
+  Restart-Service vstsagent.boppanarajeshdevops.RajPool.RajAgent -Verbose
+  Stop-Service vstsagent.boppanarajeshdevops.RajPool.RajAgent -Verbose
+  start-Service vstsagent.boppanarajeshdevops.RajPool.RajAgent -Verbose
+  Get-Service vstsagent.boppanarajeshdevops.RajPool.RajAgent
+  
+  Invoke-Command -ComputerName "52.254.15.224" -ScriptBlock {Get-PSDrive } -Credential $creds
+  Invoke-Command -ComputerName "52.254.15.224" -ScriptBlock {Get-ChildItem "D:\web" } -Credential $creds
+  
+  
+  
+  in portal --> vm -- > networking --> add inbound rules for winrm  with port 5986 (HTTPs) and custom port5985 (http)  and enable ICMP protocol	  
+
+
+
+$ErrorActionPreference="Stop";If(-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent() ).IsInRole( [Security.Principal.WindowsBuiltInRole] “Administrator”)){ throw "Run command in an administrator PowerShell prompt"};If($PSVersionTable.PSVersion -lt (New-Object System.Version("3.0"))){ throw "The minimum version of Windows PowerShell that is required by the script (3.0) does not match the currently running version of Windows PowerShell." };If(-NOT (Test-Path $env:SystemDrive\'azagent')){mkdir $env:SystemDrive\'azagent'}; cd $env:SystemDrive\'azagent'; for($i=1; $i -lt 100; $i++){$destFolder="A"+$i.ToString();if(-NOT (Test-Path ($destFolder))){mkdir $destFolder;cd $destFolder;break;}}; $agentZip="$PWD\agent.zip";$DefaultProxy=[System.Net.WebRequest]::DefaultWebProxy;$securityProtocol=@();$securityProtocol+=[Net.ServicePointManager]::SecurityProtocol;$securityProtocol+=[Net.SecurityProtocolType]::Tls12;[Net.ServicePointManager]::SecurityProtocol=$securityProtocol;$WebClient=New-Object Net.WebClient; $Uri='https://vstsagentpackage.azureedge.net/agent/2.171.1/vsts-agent-win-x64-2.171.1.zip';if($DefaultProxy -and (-not $DefaultProxy.IsBypassed($Uri))){$WebClient.Proxy= New-Object Net.WebProxy($DefaultProxy.GetProxy($Uri).OriginalString, $True);}; $WebClient.DownloadFile($Uri, $agentZip);Add-Type -AssemblyName System.IO.Compression.FileSystem;[System.IO.Compression.ZipFile]::ExtractToDirectory( $agentZip, "$PWD");.\config.cmd --deploymentgroup --deploymentgroupname "Raja" --agent $env:COMPUTERNAME --runasservice --work '_work' --url 'https://dev.azure.com/crsreddy14/' --projectname 'GitProject-1' --auth PAT --token zdrmuxilveyc2dbwmmfzl4li5lajgwp5rsypfm7demotjb35j5na; Remove-Item $agentZip;
+
+cmd /c'net use/y/delete*'
+
+c:\Project1_workspace\r1\a\Esmartstore\Project1-Artif to C:\Rajstore
+https://medium.com/@taithienbo/build-and-deploy-an-asp-net-core-app-running-on-iis-using-azure-pipelines-e675041f62d4
+https://docs.microsoft.com/en-us/azure/devops/pipelines/apps/cd/deploy-webdeploy-iis-deploygroups?view=azure-devops
+
+https://github.com/trailheadapps/dreamhouse-lwc.git

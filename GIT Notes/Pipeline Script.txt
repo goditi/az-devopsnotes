@@ -1,0 +1,123 @@
+
+node {
+
+stage('SCM'){
+ git 'https.....'
+}
+
+stage('Build Package'){
+ sh 'mvn package'
+ 
+ }
+
+stage('archival'){
+ archive 'target/*.jar'
+ 
+ }
+
+}
+
+------------------------------------------------------------------------
+pipeline{
+    agent any
+    
+    stages{
+        
+        stage('Checkout'){
+            steps{
+                
+                git 'https://github.com/devops-trainer/DevOpsClassCodes.git'
+            }
+        }
+       
+        stage('Compile'){
+            steps{
+                sh 'mvn compile'
+            }
+        }
+        stage('Test'){
+            steps{
+                sh 'mvn test'
+            }
+             post{
+              always{
+                  
+                  junit 'target/surefire-reports/*.xml'
+              }
+             }
+        }
+        stage('Package'){
+            steps{
+                sh 'mvn package'
+				sh 'mvn pmd:pmd'
+          }
+        }
+        stage('Coverage'){
+            steps{
+                sh 'mvn pmd:pmd'
+          }
+        }
+        stage('metric check'){
+            steps{
+                sh 'mvn cobertura:cobertura -Dcobertura.report.format=xml'
+				
+          }
+        }
+    }
+}
+
+######################################################################################
+
+
+job1
+
+pipeline  {
+  agent any 
+  
+     stages {
+	  stage ('Checkout') {
+	    steps{  
+	    git 'https://github.com/crsreddy1447/Myproject.git'
+	    }
+      }
+      stage ('Package') {
+       steps{      
+	   sh 'mvn clean package'
+	   sh 'mvn clean install sonar:sonar'
+       }
+	  }
+	  stage ('artifacts to s3') {
+	  
+	  withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', 
+	                    accessKeyVariable: 'AWS_ACCESS_KEY_ID', 
+	                    credentialsId: '859d3428-d5e3-414a-94ff-5b3ef7817735', 
+						secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']])
+    // some block
+     steps {
+	  s3Upload: Publish artifacts to S3 Bucket
+	    script{
+		s3Upload consoleLogLevel: 'INFO', 
+		dontSetBuildResultOnFailure: false, 
+		dontWaitForConcurrentBuildCompletion: false, 
+		entries: [[bucket: 'raja1447', excludedFile: '', flatten: false, 
+		gzipFiles: false, 
+		keepForever: false, 
+		managedArtifacts: false, 
+		noUploadOnFailure: false, 
+		selectedRegion: 'us-west-2', 
+		showDirectlyInBrowser: false, 
+		sourceFile: '**/*.war', 
+		storageClass: 'STANDARD', 
+		uploadFromSlave: false, 
+		useServerSideEncryption: false]], 
+		pluginFailureResultConstraint: 'SUCCESS', 
+		profileName: 'Raja-aws-S3', 
+		userMetadata: []
+	    }
+		}
+	  }
+	  
+	  
+   }
+   
+}  
